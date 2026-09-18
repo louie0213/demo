@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>AralNa — AI Reviewer SPA Demo</title>
+<style>
+  :root {
+    --primary: #028090;
+    --secondary: #00A896;
+    --accent: #02C39A;
+    --dark: #0B2E33;
+    --ink: #1A1A1A;
+    --muted: #5C6B6B;
+    --card: #F2F7F7;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: system-ui, -apple-system, sans-serif;
+    margin: 0;
+    background: #fafdfd;
+    color: var(--ink);
+  }
+  #app { max-width: 760px; margin: 0 auto; padding: 40px 20px; }
+  header { margin-bottom: 28px; }
+  header h1 { font-size: 1.6rem; margin: 0 0 6px; }
+  header p { color: var(--muted); margin: 0; }
+
+  .dropzone {
+    border: 2px dashed #9fb8b8;
+    border-radius: 12px;
+    padding: 48px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    background: #fff;
+  }
+  .dropzone.hover { background: #eef7f7; border-color: var(--primary); }
+  .dropzone p { margin: 0; color: var(--muted); }
+  .dropzone strong { color: var(--primary); }
+
+  .btn {
+    display: inline-block;
+    margin-top: 16px;
+    padding: 10px 20px;
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    cursor: pointer;
+  }
+  .btn.secondary { background: transparent; color: var(--primary); border: 1px solid var(--primary); }
+
+  .spinner-wrap { text-align: center; padding: 60px 0; color: var(--muted); }
+  .spinner {
+    width: 42px; height: 42px; margin: 0 auto 18px;
+    border: 4px solid #dcecec; border-top-color: var(--primary);
+    border-radius: 50%; animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .error-box {
+    background: #fdeceb; border: 1px solid #f3b7b0; color: #a3271b;
+    padding: 16px; border-radius: 8px; margin-top: 20px;
+  }
+
+  .meta { color: var(--muted); font-size: 0.85rem; margin-bottom: 20px; }
+
+  section.block { margin-bottom: 28px; }
+  section.block h2 {
+    font-size: 1.1rem; color: var(--primary); margin: 0 0 10px;
+    border-bottom: 2px solid var(--card); padding-bottom: 6px;
+  }
+
+  .card {
+    background: var(--card);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+  }
+  .card .q { font-weight: 600; margin-bottom: 4px; }
+  .card .a { color: var(--muted); }
+
+  .quiz-choice {
+    display: block; width: 100%; text-align: left;
+    padding: 10px 14px; margin: 6px 0;
+    background: #fff; border: 1px solid #d7e4e4; border-radius: 8px;
+    cursor: pointer; font-size: 0.95rem; color: var(--ink);
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .quiz-choice:hover { border-color: var(--primary); }
+  .quiz-choice.correct { background: #e3f7ee; border-color: var(--secondary); color: #0a6b4a; font-weight: 600; }
+  .quiz-choice.incorrect { background: #fdeceb; border-color: #f3b7b0; color: #a3271b; }
+  .quiz-choice[disabled] { cursor: default; }
+  .quiz-feedback { margin-top: 10px; font-weight: 600; }
+  .quiz-feedback.correct { color: var(--secondary); }
+  .quiz-feedback.incorrect { color: #a3271b; }
+
+  .top-actions { text-align: right; margin-bottom: 12px; }
+
+  .stepper-progress {
+    display: flex; gap: 8px; margin-bottom: 24px;
+  }
+  .stepper-dot {
+    flex: 1; height: 6px; border-radius: 4px; background: #dcecec;
+  }
+  .stepper-dot.active { background: var(--primary); }
+  .stepper-dot.done { background: var(--secondary); }
+
+  .stepper-nav {
+    display: flex; justify-content: space-between; margin-top: 24px;
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useRef } = React;
+
+function Dropzone({ onFile }) {
+  const [hover, setHover] = useState(false);
+  const inputRef = useRef(null);
+
+  return (
+    <div
+      className={"dropzone" + (hover ? " hover" : "")}
+      onClick={() => inputRef.current.click()}
+      onDragOver={(e) => { e.preventDefault(); setHover(true); }}
+      onDragLeave={() => setHover(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setHover(false);
+        if (e.dataTransfer.files.length) onFile(e.dataTransfer.files[0]);
+      }}
+    >
+      <p><strong>Click to choose a file</strong> or drag one here</p>
+      <p style={{ fontSize: "0.85rem", marginTop: 6 }}>.txt or .pdf</p>
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".txt,.pdf"
+        style={{ display: "none" }}
+        onChange={(e) => { if (e.target.files.length) onFile(e.target.files[0]); }}
+      />
+    </div>
+  );
+}
+
+function UploadView({ onFile }) {
+  return (
+    <div>
+      <header>
+        <h1>Upload → AI-Generated Reviewer</h1>
+        <p>Drop a study file. The AI reads it and generates a summary, flashcards, and a quiz from that specific content.</p>
+      </header>
+      <Dropzone onFile={onFile} />
+    </div>
+  );
+}
+
+function LoadingView({ filename }) {
+  return (
+    <div className="spinner-wrap">
+      <div className="spinner"></div>
+      <p>Generating reviewer from "{filename}"...</p>
+    </div>
+  );
+}
+
+function ErrorView({ message, onRetry }) {
+  return (
+    <div>
+      <div className="error-box">{message}</div>
+      <button className="btn" onClick={onRetry}>Try Another File</button>
+    </div>
+  );
+}
+
+const LETTERS = ["A", "B", "C", "D"];
+
+function resolveCorrectIndex(quiz) {
+  const raw = (quiz.answer || "").trim();
+
+  // Case 1: answer is already a clean letter, or starts with one ("A", "a", "A.", "A)")
+  const letterMatch = raw.toUpperCase().match(/^[ABCD]/);
+  if (letterMatch) {
+    return LETTERS.indexOf(letterMatch[0]);
+  }
+
+  // Case 2: answer is the full choice text instead of a letter
+  const textMatch = quiz.choices.findIndex(
+    (c) => c.trim().toLowerCase() === raw.toLowerCase()
+  );
+  return textMatch; // -1 if nothing matches at all
+}
+
+function Quiz({ quiz }) {
+  const [selectedIndex, setSelectedIndex] = useState(null);
+
+  const correctIndex = resolveCorrectIndex(quiz);
+
+  function choiceClass(i) {
+    if (selectedIndex === null) return "quiz-choice";
+    if (i === correctIndex) return "quiz-choice correct";
+    if (i === selectedIndex) return "quiz-choice incorrect";
+    return "quiz-choice";
+  }
+
+  const isCorrect = selectedIndex === correctIndex;
+
+  return (
+    <div className="card">
+      <div className="q">{quiz.question}</div>
+      {quiz.choices.map((choice, i) => (
+        <button
+          key={i}
+          className={choiceClass(i)}
+          disabled={selectedIndex !== null}
+          onClick={() => setSelectedIndex(i)}
+        >
+          {LETTERS[i]}. {choice}
+        </button>
+      ))}
+      {selectedIndex !== null && (
+        <div className={"quiz-feedback " + (isCorrect ? "correct" : "incorrect")}>
+          {isCorrect
+            ? "Correct!"
+            : correctIndex >= 0
+              ? "Not quite — correct answer: " + LETTERS[correctIndex] + ". " + quiz.choices[correctIndex]
+              : "Not quite — correct answer: " + quiz.answer}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const STEPS = ["summary", "flashcards", "quiz"];
+const STEP_LABELS = { summary: "Summary", flashcards: "Flashcards", quiz: "Quiz" };
+
+function StepperProgress({ stepIndex }) {
+  return (
+    <div className="stepper-progress">
+      {STEPS.map((s, i) => (
+        <div
+          key={s}
+          className={"stepper-dot" + (i === stepIndex ? " active" : i < stepIndex ? " done" : "")}
+        ></div>
+      ))}
+    </div>
+  );
+}
+
+function SummaryStep({ summary }) {
+  return (
+    <section className="block">
+      <h2>Summary</h2>
+      <p>{summary}</p>
+    </section>
+  );
+}
+
+function FlashcardsStep({ flashcards }) {
+  return (
+    <section className="block">
+      <h2>Flashcards</h2>
+      {flashcards.map((f, i) => (
+        <div className="card" key={i}>
+          <div className="q">Q: {f.question}</div>
+          <div className="a">A: {f.answer}</div>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function QuizStep({ quiz }) {
+  return (
+    <section className="block">
+      <h2>Quiz</h2>
+      <Quiz quiz={quiz} />
+    </section>
+  );
+}
+
+function ResultView({ data, onReset }) {
+  const { reviewer, filename, extractedChars } = data;
+  const [stepIndex, setStepIndex] = useState(0);
+  const step = STEPS[stepIndex];
+
+  return (
+    <div>
+      <div className="top-actions">
+        <button className="btn secondary" onClick={onReset}>Upload Another File</button>
+      </div>
+      <p className="meta">Generated from "{filename}" ({extractedChars} characters extracted)</p>
+
+      <StepperProgress stepIndex={stepIndex} />
+
+      {step === "summary" && <SummaryStep summary={reviewer.summary} />}
+      {step === "flashcards" && <FlashcardsStep flashcards={reviewer.flashcards} />}
+      {step === "quiz" && <QuizStep quiz={reviewer.quiz} />}
+
+      <div className="stepper-nav">
+        <button
+          className="btn secondary"
+          disabled={stepIndex === 0}
+          style={stepIndex === 0 ? { visibility: "hidden" } : {}}
+          onClick={() => setStepIndex(stepIndex - 1)}
+        >
+          ← Back
+        </button>
+        {stepIndex < STEPS.length - 1 ? (
+          <button className="btn" onClick={() => setStepIndex(stepIndex + 1)}>
+            Next: {STEP_LABELS[STEPS[stepIndex + 1]]} →
+          </button>
+        ) : (
+          <button className="btn" onClick={onReset}>Finish</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  // view: 'upload' | 'loading' | 'result' | 'error'
+  const [view, setView] = useState("upload");
+  const [filename, setFilename] = useState("");
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState("");
+
+  async function handleFile(file) {
+    setFilename(file.name);
+    setView("loading");
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("/api/upload", { method: "POST", body: formData });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "Something went wrong.");
+        setView("error");
+        return;
+      }
+
+      setResult(data);
+      setView("result");
+    } catch (err) {
+      setError("Request failed: " + err.message);
+      setView("error");
+    }
+  }
+
+  function reset() {
+    setResult(null);
+    setError("");
+    setView("upload");
+  }
+
+  return (
+    <div>
+      {view === "upload" && <UploadView onFile={handleFile} />}
+      {view === "loading" && <LoadingView filename={filename} />}
+      {view === "error" && <ErrorView message={error} onRetry={reset} />}
+      {view === "result" && <ResultView data={result} onReset={reset} />}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("app")).render(<App />);
+</script>
+</body>
+</html>
